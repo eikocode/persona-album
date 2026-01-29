@@ -8,6 +8,10 @@ A web-based dashboard that allows users to upload grayscale/black-and-white phot
 # Install dependencies
 npm install
 
+# Set up environment (optional, for AI colorization)
+cp .env.example .env.local
+# Edit .env.local and add your Gemini API key
+
 # Run development server
 npm run dev
 
@@ -17,6 +21,18 @@ npm start
 ```
 
 Then open http://localhost:3000
+
+### AI Colorization Setup
+
+To enable AI-powered colorization using Nano Banana (Google Gemini):
+
+1. Get an API key from [Google AI Studio](https://aistudio.google.com/apikey)
+2. Create `.env.local` with your key:
+   ```
+   GEMINI_API_KEY=your_api_key_here
+   ```
+
+Without an API key, the app falls back to a simple warm tint effect.
 
 ---
 
@@ -91,8 +107,8 @@ Then open http://localhost:3000
 - **Image Processing**: Sharp
 
 ### Colorization Engine
-- Mock implementation using Sharp (sepia/warm tint effect)
-- Easy to replace with real AI API later
+- **Nano Banana** (Google Gemini 2.5 Flash) for AI-powered colorization
+- Fallback to Sharp warm tint effect when no API key is configured
 
 ---
 
@@ -153,4 +169,3 @@ interface Photo {
 - Colorization style presets
 - History of colorized images
 - Social sharing
-- Real AI colorization API integration
