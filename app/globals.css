@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+.drop-zone-active {
+  @apply border-blue-500 bg-blue-50;
+}
+
+.photo-dragging {
+  @apply opacity-50;
+}
