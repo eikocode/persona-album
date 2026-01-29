@@ -6,20 +6,18 @@ export async function colorizeImage(filename: string): Promise<Buffer> {
   const filepath = getFilePath(filename)
   const inputBuffer = await readFile(filepath)
 
-  // Mock colorization: apply a warm sepia-like tint
-  // This simulates what a real AI colorization might produce
+  // Mock colorization: apply a warm, vintage color effect
+  // This creates a noticeable color transformation on B&W photos
   const colorizedBuffer = await sharp(inputBuffer)
-    // First convert to grayscale to ensure consistent starting point
-    .grayscale()
-    // Apply a warm tint using color manipulation
-    .tint({ r: 240, g: 200, b: 160 })
-    // Increase saturation slightly for a more colorful effect
+    // Apply a warm tint (don't convert to grayscale - input is already B&W)
+    .tint({ r: 255, g: 180, b: 120 })
+    // Boost saturation significantly for visible color
     .modulate({
-      saturation: 1.3,
-      brightness: 1.05,
+      saturation: 2.0,
+      brightness: 1.1,
     })
-    // Add slight warmth
-    .gamma(1.1)
+    // Warm up the gamma
+    .gamma(1.2, 1.0, 0.9)
     .toBuffer()
 
   return colorizedBuffer
