@@ -2,7 +2,7 @@ import sharp from 'sharp'
 import { getFileBuffer } from './storage'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20'
+const GEMINI_MODEL = 'gemini-2.5-flash-image'
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 interface GeminiResponse {
