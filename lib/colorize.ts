@@ -95,7 +95,7 @@ async function mockColorize(inputBuffer: Buffer): Promise<Buffer> {
       saturation: 2.0,
       brightness: 1.1,
     })
-    .gamma(1.2, 1.0, 0.9)
+    .gamma(1.1)
     .toBuffer()
 }
 
