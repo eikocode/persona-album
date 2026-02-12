@@ -46,7 +46,6 @@ async function colorizeWithNanoBanana(imageBuffer: Buffer, mimeType: string): Pr
     }],
     generationConfig: {
       responseModalities: ['image', 'text'],
-      imageSafety: 'block_low_and_above'
     }
   }
 
