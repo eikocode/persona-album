@@ -18,7 +18,7 @@ export default function UploadZone({ onUpload, isUploading }: UploadZoneProps) {
     [onUpload]
   )
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
@@ -28,11 +28,13 @@ export default function UploadZone({ onUpload, isUploading }: UploadZoneProps) {
     },
     multiple: true,
     disabled: isUploading,
+    noClick: true,
   })
 
   return (
     <div
       {...getRootProps()}
+      onClick={isUploading ? undefined : open}
       className={`
         border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
         transition-colors duration-200

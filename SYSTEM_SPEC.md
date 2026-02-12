@@ -66,20 +66,30 @@ A web-based dashboard that allows users to upload grayscale/black-and-white phot
 ## Technical Architecture
 
 ### Frontend
-- **Framework**: React (with TypeScript)
+- **Framework**: Next.js 14 (App Router) with React and TypeScript
 - **Styling**: Tailwind CSS
-- **Drag & Drop**: react-dnd or native HTML5 DnD API
-- **State Management**: React Context or Zustand
+- **Drag & Drop**: react-dropzone + native HTML5 DnD API
+- **State Management**: React useState/useEffect hooks
+- **Supabase Client**: `@supabase/supabase-js` for direct client-side access
 
-### Backend
-- **Runtime**: Node.js
-- **Framework**: Express.js or Next.js API routes
-- **File Storage**: Local filesystem or cloud storage (S3)
-- **Image Processing**: Sharp (for resizing/optimization)
+### Backend (Supabase)
+- **Platform**: Supabase (Backend-as-a-Service)
+- **Database**: Supabase Postgres for photo metadata and colorization job tracking
+- **File Storage**: Supabase Storage for uploaded and colorized images
+- **API Layer**: Next.js API routes as a thin proxy layer; Supabase handles persistence
+- **Image Processing**: Sharp (for resizing/optimization before upload)
 
 ### Colorization Engine
-- **Option A**: External API (DeepAI, Algorithmia, or similar)
-- **Option B**: Self-hosted ML model (PyTorch/TensorFlow with Flask/FastAPI)
+- **Primary**: Nano Banana (Gemini) AI colorization API
+- **Fallback**: Mock colorization (when no API key is configured)
+
+### Supabase Services Used
+| Service | Purpose |
+|---------|---------|
+| **Storage** | Store original and colorized photo files in buckets |
+| **Database (Postgres)** | Store photo metadata, colorization jobs, and relationships |
+| **Realtime** (future) | Live updates for colorization job progress |
+| **Auth** (future) | User accounts and personal galleries |
 
 ---
 
@@ -87,28 +97,74 @@ A web-based dashboard that allows users to upload grayscale/black-and-white phot
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/upload` | Upload one or more photos |
-| GET | `/api/photos` | List all uploaded photos |
-| GET | `/api/photos/:id` | Get single photo details |
-| DELETE | `/api/photos/:id` | Delete a photo |
-| POST | `/api/colorize` | Submit photo for colorization |
-| GET | `/api/colorize/:id` | Get colorization result |
+| POST | `/api/upload` | Upload photo → Supabase Storage + insert metadata to Postgres |
+| GET | `/api/photos` | Query photo metadata from Supabase Postgres |
+| GET | `/api/photos/:id` | Get single photo details from Supabase Postgres |
+| DELETE | `/api/photos/:id` | Delete photo from Supabase Storage + Postgres |
+| POST | `/api/colorize` | Submit photo for colorization, store result in Supabase |
+| GET | `/api/colorize/:id` | Get colorization result from Supabase |
 
 ---
 
-## Data Models
+## Supabase Schema
+
+### Storage Buckets
+
+| Bucket | Access | Purpose |
+|--------|--------|---------|
+| `photos` | Private | Original uploaded photos |
+| `colorized` | Private | Colorized photo results |
+
+Files are accessed via signed URLs generated server-side.
+
+### Database Tables
+
+#### `photos`
+```sql
+CREATE TABLE photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  storage_path TEXT NOT NULL,
+  url TEXT NOT NULL,
+  is_colorized BOOLEAN DEFAULT FALSE,
+  original_id UUID REFERENCES photos(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+#### `colorization_jobs`
+```sql
+CREATE TABLE colorization_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  photo_id UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  result_photo_id UUID REFERENCES photos(id) ON DELETE SET NULL,
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+```
+
+---
+
+## Data Models (TypeScript)
 
 ### Photo
 ```typescript
 interface Photo {
   id: string;
   filename: string;
-  originalName: string;
-  mimeType: string;
+  original_name: string;
+  mime_type: string;
   size: number;
-  path: string;
-  thumbnailPath: string;
-  uploadedAt: Date;
+  storage_path: string;
+  url: string;
+  is_colorized: boolean;
+  original_id: string | null;
+  created_at: string;
 }
 ```
 
@@ -116,13 +172,24 @@ interface Photo {
 ```typescript
 interface ColorizationJob {
   id: string;
-  photoId: string;
+  photo_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  resultPath?: string;
-  createdAt: Date;
-  completedAt?: Date;
-  error?: string;
+  result_photo_id: string | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
+```
+
+---
+
+## Environment Variables
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+GEMINI_API_KEY=<gemini-api-key>
 ```
 
 ---
@@ -148,10 +215,67 @@ interface ColorizationJob {
 
 ---
 
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────┐
+│                  Browser (Client)                │
+│  Next.js App (React + TypeScript + Tailwind)     │
+│  ┌──────────┐ ┌───────────┐ ┌────────────────┐  │
+│  │UploadZone│ │PhotoGallery│ │ ColorizeZone   │  │
+│  └────┬─────┘ └─────┬─────┘ └───────┬────────┘  │
+└───────┼─────────────┼───────────────┼────────────┘
+        │             │               │
+        ▼             ▼               ▼
+┌─────────────────────────────────────────────────┐
+│              Next.js API Routes                  │
+│  /api/upload  /api/photos  /api/colorize         │
+│         │           │            │               │
+└─────────┼───────────┼────────────┼───────────────┘
+          │           │            │
+          ▼           ▼            ▼
+┌─────────────────────────────────────────────────┐
+│                  Supabase                        │
+│  ┌─────────────┐  ┌──────────────────────────┐  │
+│  │   Storage    │  │     Postgres Database     │  │
+│  │ ┌─────────┐ │  │  ┌────────┐ ┌──────────┐ │  │
+│  │ │ photos  │ │  │  │ photos │ │colorize_ │ │  │
+│  │ ├─────────┤ │  │  │        │ │  jobs    │ │  │
+│  │ │colorized│ │  │  └────────┘ └──────────┘ │  │
+│  │ └─────────┘ │  │                          │  │
+│  └─────────────┘  └──────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────┐
+│  Gemini AI API      │
+│  (Colorization)     │
+└─────────────────────┘
+```
+
+---
+
+## Migration Notes (from local filesystem)
+
+The current implementation uses:
+- Local filesystem (`public/uploads/`) for photo storage
+- In-memory/filesystem metadata (no database)
+
+Migration to Supabase requires:
+1. Replace `lib/storage.ts` to use Supabase Storage + Postgres instead of local fs
+2. Create Supabase client utility (`lib/supabase.ts`)
+3. Update API routes to read/write from Supabase
+4. Create storage buckets and database tables in Supabase project
+5. Update photo URLs from local paths to Supabase signed URLs
+6. Add environment variables for Supabase credentials
+
+---
+
 ## Future Enhancements (Out of Scope)
 
-- User authentication and personal galleries
+- User authentication via Supabase Auth and personal galleries
 - Batch colorization
 - Colorization style presets
-- History of colorized images
+- History of colorized images with Supabase Realtime updates
 - Social sharing
+- Row Level Security (RLS) policies for multi-user access
