@@ -1,8 +1,7 @@
-import { readdir, unlink, writeFile, stat } from 'fs/promises'
-import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import { supabase } from './supabase'
 
-const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads')
+const BUCKET = 'photos'
 
 export interface PhotoMetadata {
   id: string
@@ -14,6 +13,29 @@ export interface PhotoMetadata {
   originalId?: string
 }
 
+interface PhotoRow {
+  id: string
+  filename: string
+  original_name: string
+  storage_path: string
+  url: string
+  is_colorized: boolean
+  original_id: string | null
+  created_at: string
+}
+
+function rowToMetadata(row: PhotoRow): PhotoMetadata {
+  return {
+    id: row.id,
+    filename: row.filename,
+    originalName: row.original_name,
+    url: row.url,
+    createdAt: row.created_at,
+    isColorized: row.is_colorized,
+    originalId: row.original_id ?? undefined,
+  }
+}
+
 export async function saveFile(
   buffer: Buffer,
   originalName: string,
@@ -21,80 +43,137 @@ export async function saveFile(
   originalId?: string
 ): Promise<PhotoMetadata> {
   const id = uuidv4()
-  const ext = path.extname(originalName) || '.jpg'
+  const ext = originalName.match(/\.[^.]+$/)?.[0] || '.jpg'
   const prefix = isColorized ? 'colorized-' : ''
   const filename = `${prefix}${id}${ext}`
-  const filepath = path.join(UPLOADS_DIR, filename)
+  const storagePath = filename
 
-  await writeFile(filepath, buffer)
+  // Upload to Supabase Storage
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, buffer, {
+      contentType: getMimeType(ext),
+      upsert: false,
+    })
 
-  return {
-    id,
-    filename,
-    originalName,
-    url: `/uploads/${filename}`,
-    createdAt: new Date().toISOString(),
-    isColorized,
-    originalId,
+  if (uploadError) {
+    throw new Error(`Storage upload failed: ${uploadError.message}`)
   }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from(BUCKET)
+    .getPublicUrl(storagePath)
+
+  const url = urlData.publicUrl
+
+  // Insert metadata into Postgres
+  const { data, error: dbError } = await supabase
+    .from('photos')
+    .insert({
+      id,
+      filename,
+      original_name: originalName,
+      mime_type: getMimeType(ext),
+      size: buffer.length,
+      storage_path: storagePath,
+      url,
+      is_colorized: isColorized,
+      original_id: originalId ?? null,
+    })
+    .select()
+    .single()
+
+  if (dbError) {
+    // Clean up uploaded file if DB insert fails
+    await supabase.storage.from(BUCKET).remove([storagePath])
+    throw new Error(`Database insert failed: ${dbError.message}`)
+  }
+
+  return rowToMetadata(data)
 }
 
 export async function listPhotos(): Promise<PhotoMetadata[]> {
-  try {
-    const files = await readdir(UPLOADS_DIR)
-    const photos: PhotoMetadata[] = []
+  const { data, error } = await supabase
+    .from('photos')
+    .select('*')
+    .order('created_at', { ascending: false })
 
-    for (const filename of files) {
-      if (filename === '.gitkeep') continue
-
-      const ext = path.extname(filename).toLowerCase()
-      if (!['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) continue
-
-      const filepath = path.join(UPLOADS_DIR, filename)
-      const stats = await stat(filepath)
-
-      const isColorized = filename.startsWith('colorized-')
-      const idMatch = filename.match(/(?:colorized-)?([a-f0-9-]{36})/)
-      const id = idMatch ? idMatch[1] : filename
-
-      photos.push({
-        id,
-        filename,
-        originalName: filename,
-        url: `/uploads/${filename}`,
-        createdAt: stats.mtime.toISOString(),
-        isColorized,
-      })
-    }
-
-    return photos.sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  } catch {
+  if (error) {
+    console.error('Error listing photos:', error.message)
     return []
   }
-}
 
-export async function deletePhoto(id: string): Promise<boolean> {
-  try {
-    const files = await readdir(UPLOADS_DIR)
-    const fileToDelete = files.find(f => f.includes(id))
-
-    if (fileToDelete) {
-      await unlink(path.join(UPLOADS_DIR, fileToDelete))
-      return true
-    }
-    return false
-  } catch {
-    return false
-  }
+  return (data ?? []).map(rowToMetadata)
 }
 
 export async function getPhoto(id: string): Promise<PhotoMetadata | null> {
-  const photos = await listPhotos()
-  return photos.find(p => p.id === id) || null
+  const { data, error } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  return rowToMetadata(data)
 }
 
-export function getFilePath(filename: string): string {
-  return path.join(UPLOADS_DIR, filename)
+export async function deletePhoto(id: string): Promise<boolean> {
+  // Get the photo to find its storage path
+  const { data: photo, error: fetchError } = await supabase
+    .from('photos')
+    .select('storage_path')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !photo) {
+    return false
+  }
+
+  // Delete from storage
+  const { error: storageError } = await supabase.storage
+    .from(BUCKET)
+    .remove([photo.storage_path])
+
+  if (storageError) {
+    console.error('Storage delete error:', storageError.message)
+  }
+
+  // Delete from database
+  const { error: dbError } = await supabase
+    .from('photos')
+    .delete()
+    .eq('id', id)
+
+  if (dbError) {
+    console.error('Database delete error:', dbError.message)
+    return false
+  }
+
+  return true
+}
+
+export async function getFileBuffer(storagePath: string): Promise<Buffer> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .download(storagePath)
+
+  if (error || !data) {
+    throw new Error(`Failed to download file: ${error?.message ?? 'no data'}`)
+  }
+
+  const arrayBuffer = await data.arrayBuffer()
+  return Buffer.from(arrayBuffer)
+}
+
+function getMimeType(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case '.png': return 'image/png'
+    case '.webp': return 'image/webp'
+    case '.gif': return 'image/gif'
+    default: return 'image/jpeg'
+  }
 }

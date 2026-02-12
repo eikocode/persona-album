@@ -1,6 +1,5 @@
 import sharp from 'sharp'
-import { readFile } from 'fs/promises'
-import { getFilePath } from './storage'
+import { getFileBuffer } from './storage'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20'
@@ -101,8 +100,7 @@ async function mockColorize(inputBuffer: Buffer): Promise<Buffer> {
 }
 
 export async function colorizeImage(filename: string): Promise<Buffer> {
-  const filepath = getFilePath(filename)
-  const inputBuffer = await readFile(filepath)
+  const inputBuffer = await getFileBuffer(filename)
 
   // Determine MIME type from extension
   const ext = filename.toLowerCase().split('.').pop()
@@ -121,8 +119,7 @@ export async function colorizeImage(filename: string): Promise<Buffer> {
 }
 
 export async function applyVintageEffect(filename: string): Promise<Buffer> {
-  const filepath = getFilePath(filename)
-  const inputBuffer = await readFile(filepath)
+  const inputBuffer = await getFileBuffer(filename)
 
   const vintageBuffer = await sharp(inputBuffer)
     .modulate({
