@@ -1,9 +1,13 @@
 import sharp from 'sharp'
 import { getFileBuffer } from './storage'
+import Replicate from 'replicate'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const GEMINI_MODEL = 'gemini-2.5-flash-image'
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN
+const replicate = REPLICATE_API_TOKEN ? new Replicate({ auth: REPLICATE_API_TOKEN }) : null
 
 interface GeminiResponse {
   candidates?: Array<{
@@ -86,6 +90,78 @@ async function colorizeWithNanoBanana(imageBuffer: Buffer, mimeType: string): Pr
   }
 }
 
+async function colorizeWithReplicate(imageBuffer: Buffer, mimeType: string): Promise<Buffer | null> {
+  if (!replicate) {
+    console.log('No REPLICATE_API_TOKEN found')
+    return null
+  }
+
+  try {
+    const base64Image = `data:${mimeType};base64,${imageBuffer.toString('base64')}`
+
+    console.log('Calling Replicate nano-banana-pro for colorization...')
+
+    // Using DeOldify - THE dedicated colorization model!
+    const output = await replicate.run(
+      'arielreplicate/deoldify_image:0da600fab0c45a66211339f1c16b71345d22f26ef5fea3dca1bb90bb5711e950',
+      {
+        input: {
+          input_image: base64Image,  // Correct parameter name!
+          model_name: 'Artistic',    // Artistic or Stable
+          render_factor: 35          // Quality: 7-45, higher = better
+        }
+      }
+    )
+
+    console.log('Replicate nano-banana-pro output received')
+
+    // nano-banana-pro returns a FileOutput object with .url() method
+    if (output && typeof output === 'object') {
+      const outputObj = output as any
+
+      // Check if it has a .url() method
+      if (typeof outputObj.url === 'function') {
+        const imageUrl = outputObj.url()
+        const imageUrlString = imageUrl.toString() // Convert URL object to string
+        console.log('Fetching colorized image from:', imageUrlString)
+        const response = await fetch(imageUrlString)
+        if (!response.ok) {
+          console.error('Failed to fetch colorized image from Replicate')
+          return null
+        }
+        const arrayBuffer = await response.arrayBuffer()
+        console.log('✅ Successfully colorized with nano-banana-pro!')
+        return Buffer.from(arrayBuffer)
+      }
+
+      // Fallback: check if output is directly a buffer-like object
+      if (Buffer.isBuffer(output)) {
+        console.log('✅ Got buffer directly from nano-banana-pro!')
+        return output
+      }
+    }
+
+    // Handle string output (URL)
+    if (typeof output === 'string' && output.startsWith('http')) {
+      console.log('Fetching colorized image from URL:', output)
+      const response = await fetch(output)
+      if (!response.ok) {
+        console.error('Failed to fetch colorized image from Replicate')
+        return null
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      console.log('✅ Successfully colorized with nano-banana-pro!')
+      return Buffer.from(arrayBuffer)
+    }
+
+    console.error('Unexpected nano-banana-pro output format:', typeof output, output)
+    return null
+  } catch (error) {
+    console.error('Failed to call Replicate nano-banana-pro:', error)
+    return null
+  }
+}
+
 async function mockColorize(inputBuffer: Buffer): Promise<Buffer> {
   // Fallback: apply a warm, vintage color effect
   return sharp(inputBuffer)
@@ -107,13 +183,24 @@ export async function colorizeImage(filename: string): Promise<Buffer> {
                    ext === 'webp' ? 'image/webp' :
                    ext === 'gif' ? 'image/gif' : 'image/jpeg'
 
-  // Try Nano Banana (Gemini) first, fall back to mock
+  // Try Replicate first (has free tier and great quality!)
+  console.log('Attempting Replicate colorization...')
+  const replicateResult = await colorizeWithReplicate(inputBuffer, mimeType)
+  if (replicateResult) {
+    console.log('✅ Replicate colorization successful!')
+    return replicateResult
+  }
+
+  // Try Nano Banana (Gemini) as fallback
+  console.log('Attempting Gemini colorization...')
   const nanoBananaResult = await colorizeWithNanoBanana(inputBuffer, mimeType)
   if (nanoBananaResult) {
+    console.log('✅ Gemini colorization successful!')
     return nanoBananaResult
   }
 
-  // Fallback to mock colorization
+  // Final fallback to mock colorization
+  console.log('⚠️  Using mock colorization (no API keys available)')
   return mockColorize(inputBuffer)
 }
 
