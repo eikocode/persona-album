@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPhoto, saveFile } from '@/lib/storage'
 import { colorizeImage } from '@/lib/colorize'
+import { getCurrentUser } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    // Get user if authenticated (returns null if not)
+    const user = await getCurrentUser()
+
     const body = await request.json()
     const { photoId } = body
 
@@ -25,12 +29,13 @@ export async function POST(request: NextRequest) {
     // Apply colorization effect
     const colorizedBuffer = await colorizeImage(photo.filename)
 
-    // Save the colorized image
+    // Save the colorized image with user_id if authenticated
     const colorizedPhoto = await saveFile(
       colorizedBuffer,
       `colorized-${photo.originalName}`,
       true,
-      photo.id
+      photo.id,
+      user?.id ?? null
     )
 
     return NextResponse.json({

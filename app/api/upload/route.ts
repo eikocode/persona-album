@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveFile } from '@/lib/storage'
+import { getCurrentUser } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    // Get user if authenticated (returns null if not)
+    const user = await getCurrentUser()
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
@@ -30,7 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const photo = await saveFile(buffer, file.name)
+    // Save with user_id if authenticated, null if anonymous
+    const photo = await saveFile(buffer, file.name, false, undefined, user?.id ?? null)
 
     return NextResponse.json(photo, { status: 201 })
   } catch (error) {

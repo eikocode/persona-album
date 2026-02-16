@@ -21,6 +21,7 @@ interface PhotoRow {
   url: string
   is_colorized: boolean
   original_id: string | null
+  user_id: string | null
   created_at: string
 }
 
@@ -40,7 +41,8 @@ export async function saveFile(
   buffer: Buffer,
   originalName: string,
   isColorized: boolean = false,
-  originalId?: string
+  originalId?: string,
+  userId?: string | null
 ): Promise<PhotoMetadata> {
   const id = uuidv4()
   const ext = originalName.match(/\.[^.]+$/)?.[0] || '.jpg'
@@ -80,6 +82,7 @@ export async function saveFile(
       url,
       is_colorized: isColorized,
       original_id: originalId ?? null,
+      user_id: userId ?? null,
     })
     .select()
     .single()

@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import UploadZone from '@/components/UploadZone'
 import PhotoGallery from '@/components/PhotoGallery'
 import ColorizeZone from '@/components/ColorizeZone'
 import ResultPreview from '@/components/ResultPreview'
 import { PhotoMetadata } from '@/lib/storage'
+import { useAuth } from '@/lib/auth-context'
 
 interface ColorizeResult {
   original: PhotoMetadata
@@ -18,6 +20,7 @@ export default function Home() {
   const [isColorizing, setIsColorizing] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [colorizeResult, setColorizeResult] = useState<ColorizeResult | null>(null)
+  const { user, signOut, loading: authLoading } = useAuth()
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -118,12 +121,55 @@ export default function Home() {
     <main className="min-h-screen bg-pink-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Photo Colorization Dashboard
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Upload black & white photos and bring them to life with color
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Photo Colorization Dashboard
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Upload black & white photos and bring them to life with color
+              </p>
+            </div>
+
+            {/* Auth UI */}
+            <div>
+              {authLoading ? (
+                <div className="h-10 w-24 bg-gray-200 animate-pulse rounded-lg" />
+              ) : user ? (
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Signed in as</p>
+                    <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signOut()
+                      } catch (error) {
+                        console.error('Sign out failed:', error)
+                      }
+                    }}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  Sign In
+                </Link>
+              )}
+            </div>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
