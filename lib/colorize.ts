@@ -102,7 +102,7 @@ async function colorizeWithReplicate(imageBuffer: Buffer, mimeType: string): Pro
     console.log('Calling Replicate nano-banana-pro for colorization...')
 
     // Using DeOldify - THE dedicated colorization model!
-    const output = await replicate.run(
+    const output: any = await replicate.run(
       'arielreplicate/deoldify_image:0da600fab0c45a66211339f1c16b71345d22f26ef5fea3dca1bb90bb5711e950',
       {
         input: {
@@ -115,7 +115,22 @@ async function colorizeWithReplicate(imageBuffer: Buffer, mimeType: string): Pro
 
     console.log('Replicate nano-banana-pro output received')
 
-    // nano-banana-pro returns a FileOutput object with .url() method
+    // Handle string output (URL)
+    if (typeof output === 'string') {
+      if ((output as string).startsWith('http')) {
+        console.log('Fetching colorized image from URL:', output)
+        const response = await fetch(output)
+        if (!response.ok) {
+          console.error('Failed to fetch colorized image from Replicate')
+          return null
+        }
+        const arrayBuffer = await response.arrayBuffer()
+        console.log('✅ Successfully colorized!')
+        return Buffer.from(arrayBuffer)
+      }
+    }
+
+    // Handle object output (FileOutput with .url() method)
     if (output && typeof output === 'object') {
       const outputObj = output as any
 
@@ -130,31 +145,18 @@ async function colorizeWithReplicate(imageBuffer: Buffer, mimeType: string): Pro
           return null
         }
         const arrayBuffer = await response.arrayBuffer()
-        console.log('✅ Successfully colorized with nano-banana-pro!')
+        console.log('✅ Successfully colorized!')
         return Buffer.from(arrayBuffer)
       }
 
       // Fallback: check if output is directly a buffer-like object
       if (Buffer.isBuffer(output)) {
-        console.log('✅ Got buffer directly from nano-banana-pro!')
+        console.log('✅ Got buffer directly!')
         return output
       }
     }
 
-    // Handle string output (URL)
-    if (typeof output === 'string' && output.startsWith('http')) {
-      console.log('Fetching colorized image from URL:', output)
-      const response = await fetch(output)
-      if (!response.ok) {
-        console.error('Failed to fetch colorized image from Replicate')
-        return null
-      }
-      const arrayBuffer = await response.arrayBuffer()
-      console.log('✅ Successfully colorized with nano-banana-pro!')
-      return Buffer.from(arrayBuffer)
-    }
-
-    console.error('Unexpected nano-banana-pro output format:', typeof output, output)
+    console.error('Unexpected output format:', typeof output)
     return null
   } catch (error) {
     console.error('Failed to call Replicate nano-banana-pro:', error)
