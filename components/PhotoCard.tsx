@@ -25,9 +25,16 @@ export default function PhotoCard({
 
   return (
     <article
+      draggable="true"
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'copy'
+        e.dataTransfer.setData('text/x-photo-url', photo.url)
+        e.dataTransfer.setData('text/x-photo-name', photo.originalName)
+        e.dataTransfer.setData('text/x-photo-id', photo.id)
+      }}
       onClick={() => onPhotoClick(photo)}
       className={`group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl
-        transition-all duration-200 hover:-translate-y-1 cursor-pointer
+        transition-all duration-200 hover:-translate-y-1 cursor-grab
         ${isDeleting ? 'opacity-50' : ''}`}
     >
       {/* Image area */}

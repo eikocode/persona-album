@@ -29,3 +29,26 @@ body {
   font-size: 18px;
   line-height: 1.8;
 }
+
+/* TipTap / ProseMirror */
+.ProseMirror { outline: none; }
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #d1d5db;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: block;
+}
+
+.ProseMirror-dropcursor {
+  border-color: #1A56DB;
+}
