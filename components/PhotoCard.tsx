@@ -3,6 +3,11 @@
 import Image from 'next/image'
 import { PhotoMetadata } from '@/lib/storage'
 
+function trimName(name: string) {
+  const base = name.replace(/\.[^.]+$/, '')
+  return base.length > 24 ? base.slice(0, 24) + '…' : base
+}
+
 interface PhotoCardProps {
   photo: PhotoMetadata
   onDelete: (id: string) => void
@@ -44,7 +49,7 @@ export default function PhotoCard({
           alt={photo.originalName}
           fill
           className="object-cover"
-          sizes="(max-width: 640px) 50vw, 20vw"
+          sizes="(max-width: 640px) 33vw, 10vw"
         />
 
         {/* Hover overlay */}
@@ -103,11 +108,17 @@ export default function PhotoCard({
 
       {/* Info strip */}
       <div className="px-3 py-2">
-        <p className="text-sm font-medium text-gray-800 truncate">{photo.originalName}</p>
+        <p className="text-sm font-medium text-gray-800 truncate">{trimName(photo.originalName)}</p>
         {tagSummary ? (
           <p className="text-xs text-bio-muted mt-0.5 truncate">{tagSummary}</p>
         ) : (
-          <p className="text-xs text-gray-300 mt-0.5">No tags yet</p>
+          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            Add tags
+          </p>
         )}
       </div>
     </article>

@@ -140,11 +140,13 @@ export default function Home() {
 
   return (
     <div className="flex h-[calc(100vh-56px)]">
-      {/* Left panel — Photos (38%) */}
-      <div className="w-[38%] bg-bio-surface border-r border-bio-border flex flex-col overflow-hidden">
+      {/* Left panel — Photos (28%) */}
+      <div className="w-[28%] bg-bio-surface border-r border-bio-border flex flex-col overflow-hidden">
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-bio-border bg-white shrink-0">
-          <h2 className="text-base font-semibold text-gray-900">Photos</h2>
+          <h2 className="text-base font-semibold text-gray-900">
+            Photos{photos.length > 0 && <span className="ml-1.5 text-sm font-normal text-gray-400">({photos.length})</span>}
+          </h2>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
@@ -195,7 +197,7 @@ export default function Home() {
 
       {/* Right panel — Writing (60%) + Co-pilot (40%) */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-[60] overflow-y-auto bg-white border-r border-bio-border">
+        <div className="flex-[60] overflow-y-auto bg-gray-100 border-r border-bio-border">
           <WritingArea ref={writingAreaRef} photos={photos} onContentChange={handleContentChange} />
         </div>
         <div className="flex-[40] overflow-hidden flex flex-col bg-bio-surface">

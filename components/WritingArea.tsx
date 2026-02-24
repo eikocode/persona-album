@@ -38,8 +38,10 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
     const [title, setTitle] = useState('')
     const [mounted, setMounted] = useState(false)
     const [wordCount, setWordCount] = useState(0)
+    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
     const [initialContent, setInitialContent] = useState<object>({ type: 'doc', content: [{ type: 'paragraph' }] })
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
       const savedTitle = localStorage.getItem(STORAGE_KEY_TITLE) ?? ''
@@ -81,9 +83,15 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
         },
       },
       onUpdate({ editor }) {
+        setSaveState('saving')
         localStorage.setItem(STORAGE_KEY_BODY, JSON.stringify(editor.getJSON()))
         setWordCount(editor.getText().trim().split(/\s+/).filter(Boolean).length)
         onContentChange?.(editor.getText())
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => {
+          setSaveState('saved')
+          savedTimer.current = setTimeout(() => setSaveState('idle'), 2000)
+        }, DEBOUNCE_MS)
       },
     })
 
@@ -139,26 +147,40 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
     if (!mounted) return null
 
     return (
-      <div className="flex flex-col h-full px-8 py-6">
-        {/* Title */}
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          placeholder="My Life Story"
-          className="w-full text-3xl font-bold text-gray-900 border-none outline-none
-                     placeholder-gray-300 bg-transparent mb-6 leading-tight"
-          aria-label="Biography title"
-        />
+      <div className="flex justify-center py-10 px-4 min-h-full">
+        {/* Page card: fixed width, book-like */}
+        <div className="w-full max-w-[680px] bg-white shadow-lg px-16 py-14 self-start">
+          {/* Title */}
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="My Life Story"
+            className="w-full text-3xl font-bold text-gray-900 border-none outline-none
+                       placeholder-gray-300 bg-transparent mb-6 leading-tight"
+            aria-label="Biography title"
+          />
 
-        <div className="w-full border-b border-gray-200 mb-6" />
+          <div className="w-full border-b border-gray-200 mb-6" />
 
-        {/* TipTap editor */}
-        <EditorContent editor={editor} className="flex-1 overflow-y-auto" />
+          {/* TipTap editor */}
+          <EditorContent editor={editor} />
 
-        {/* Word count */}
-        <div className="mt-4 text-right text-sm text-gray-400 select-none">
-          {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}
+          {/* Bottom bar: word count + autosave indicator */}
+          <div className="mt-4 flex items-center justify-end gap-3 text-sm text-gray-400 select-none">
+            {saveState === 'saving' && (
+              <span className="text-xs">Saving…</span>
+            )}
+            {saveState === 'saved' && (
+              <span className="text-xs flex items-center gap-1">
+                <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved
+              </span>
+            )}
+            <span>{wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}</span>
+          </div>
         </div>
       </div>
     )
