@@ -14,10 +14,12 @@ const DEBOUNCE_MS = 800
 export interface WritingAreaHandle {
   getBody: () => string
   appendText: (text: string) => void
+  replaceWord: (original: string, corrected: string) => void
 }
 
 export interface WritingAreaProps {
   photos?: PhotoMetadata[]
+  onContentChange?: (text: string) => void
 }
 
 function plainTextToTipTapDoc(text: string): object {
@@ -32,7 +34,7 @@ function plainTextToTipTapDoc(text: string): object {
 }
 
 const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
-  function WritingArea(_props, ref) {
+  function WritingArea({ onContentChange }, ref) {
     const [title, setTitle] = useState('')
     const [mounted, setMounted] = useState(false)
     const [wordCount, setWordCount] = useState(0)
@@ -64,7 +66,7 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
       ],
       content: { type: 'doc', content: [{ type: 'paragraph' }] },
       editorProps: {
-        attributes: { class: 'writing-area focus:outline-none min-h-[400px]' },
+        attributes: { class: 'writing-area focus:outline-none min-h-[400px]', spellcheck: 'true' },
         handleDrop(view, event, _slice, moved) {
           if (moved) return false
           const url = event.dataTransfer?.getData('text/x-photo-url')
@@ -81,6 +83,7 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
       onUpdate({ editor }) {
         localStorage.setItem(STORAGE_KEY_BODY, JSON.stringify(editor.getJSON()))
         setWordCount(editor.getText().trim().split(/\s+/).filter(Boolean).length)
+        onContentChange?.(editor.getText())
       },
     })
 
@@ -101,6 +104,22 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
           editor.state.doc.content.size,
           { type: 'paragraph', content: [{ type: 'text', text }] }
         ).run()
+        localStorage.setItem(STORAGE_KEY_BODY, JSON.stringify(editor.getJSON()))
+      },
+      replaceWord: (original: string, corrected: string) => {
+        if (!editor) return
+        const { state, view } = editor
+        const { doc } = state
+        let found = false
+        doc.descendants((node, pos) => {
+          if (found || node.type.name !== 'text') return
+          const idx = node.text?.indexOf(original) ?? -1
+          if (idx === -1) return
+          const from = pos + idx
+          const to = from + original.length
+          view.dispatch(state.tr.replaceWith(from, to, state.schema.text(corrected)))
+          found = true
+        })
         localStorage.setItem(STORAGE_KEY_BODY, JSON.stringify(editor.getJSON()))
       },
     }), [editor])

@@ -7,21 +7,26 @@ export interface CoPilotProps {
   photos: PhotoMetadata[]
   getCurrentText: () => string
   onInsertText: (text: string) => void
+  onReplaceText: (original: string, corrected: string) => void
+  proactiveTrigger?: string
 }
 
 interface Message {
   role: 'user' | 'model'
   content: string
   draftParagraph?: string
+  isProactive?: boolean
+  fix?: { original: string; corrected: string }
 }
 
-export default function CoPilot({ photos, getCurrentText, onInsertText }: CoPilotProps) {
+export default function CoPilot({ photos, getCurrentText, onInsertText, onReplaceText, proactiveTrigger }: CoPilotProps) {
   const [mode, setMode] = useState<'interview' | 'edit'>('interview')
   const [messages, setMessages] = useState<Message[]>([])
   const [userInput, setUserInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastAnalyzedText = useRef('')
 
   const started = messages.length > 0
   const hasTaggedPhotos = photos.some(
@@ -31,6 +36,40 @@ export default function CoPilot({ photos, getCurrentText, onInsertText }: CoPilo
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  async function runProactiveCheck(text: string) {
+    setIsLoading(true)
+    try {
+      const apiHistory = messages.map(m => ({ role: m.role, content: m.content }))
+      const response = await fetch('/api/copilot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'proactive', history: apiHistory, currentText: text, photos }),
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      const { suggestion, fix } = data
+      if (suggestion) {
+        setMessages(prev => [...prev, {
+          role: 'model',
+          content: suggestion,
+          isProactive: true,
+          fix,
+        }])
+      }
+    } catch {
+      // silently ignore proactive check errors
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!proactiveTrigger) return
+    if (proactiveTrigger === lastAnalyzedText.current) return
+    lastAnalyzedText.current = proactiveTrigger
+    runProactiveCheck(proactiveTrigger)
+  }, [proactiveTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function switchMode(newMode: 'interview' | 'edit') {
     if (newMode === mode) return
@@ -45,7 +84,7 @@ export default function CoPilot({ photos, getCurrentText, onInsertText }: CoPilo
     setError(null)
     try {
       const apiHistory = history.map(m => ({ role: m.role, content: m.content }))
-      const currentText = mode === 'edit' ? getCurrentText() : undefined
+      const currentText = (mode === 'edit' || mode === 'interview') ? getCurrentText() : undefined
 
       const response = await fetch('/api/copilot', {
         method: 'POST',
@@ -70,7 +109,10 @@ export default function CoPilot({ photos, getCurrentText, onInsertText }: CoPilo
   function handleStart() {
     let triggerMessage: string
     if (mode === 'interview') {
-      triggerMessage = 'Please start the interview and ask me your first question.'
+      const text = getCurrentText()
+      triggerMessage = text.trim()
+        ? `Please start the interview. I've already written some content — avoid repeating topics already covered.`
+        : 'Please start the interview and ask me your first question.'
     } else {
       const text = getCurrentText()
       triggerMessage = text.trim()
@@ -138,27 +180,42 @@ export default function CoPilot({ photos, getCurrentText, onInsertText }: CoPilo
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                msg.role === 'user'
-                  ? 'bg-bio-primary text-white rounded-tr-sm'
-                  : 'bg-white border border-bio-border text-gray-800 rounded-tl-sm'
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.draftParagraph && (
-                <button
-                  onClick={() => onInsertText(msg.draftParagraph!)}
-                  className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-700
-                             text-white text-xs font-medium rounded-lg transition-colors"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Insert into story
-                </button>
-              )}
-            </div>
+            {msg.isProactive ? (
+              <div className="max-w-[90%] bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-900">
+                <span className="mr-1">💡</span>{msg.content}
+                {msg.fix && (
+                  <button
+                    onClick={() => onReplaceText(msg.fix!.original, msg.fix!.corrected)}
+                    className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700
+                               text-white text-xs font-medium rounded-lg transition-colors"
+                  >
+                    Fix: &ldquo;{msg.fix.original}&rdquo; → &ldquo;{msg.fix.corrected}&rdquo;
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                  msg.role === 'user'
+                    ? 'bg-bio-primary text-white rounded-tr-sm'
+                    : 'bg-white border border-bio-border text-gray-800 rounded-tl-sm'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.draftParagraph && (
+                  <button
+                    onClick={() => onInsertText(msg.draftParagraph!)}
+                    className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-700
+                               text-white text-xs font-medium rounded-lg transition-colors"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Insert into story
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
 

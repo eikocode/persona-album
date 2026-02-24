@@ -11,9 +11,9 @@ interface Message {
 }
 
 interface CopilotRequest {
-  mode: 'interview' | 'edit'
+  mode: 'interview' | 'edit' | 'proactive'
   history: Message[]
-  userMessage: string
+  userMessage?: string
   photos: PhotoMetadata[]
   currentText?: string
 }
@@ -71,13 +71,30 @@ ${
     ? 'Note: The user has not tagged any photos yet. Gently remind them that tagging their photos will help you ask more specific questions about the people, places, and events in those photos. Then still ask them one open-ended question to get them started writing.'
     : 'Use these photos as context for your questions, asking about the people, places, and events shown.'
 }
-
+${currentText ? `\nThe user has already written the following text — do NOT ask about topics already covered here. Instead, pick up the story where the writing leaves off or explore angles not yet addressed:\n\n${currentText}\n` : ''}
 Guidelines:
 - Ask only ONE question at a time
 - Be warm, encouraging, and curious
 - When the user shares a meaningful memory or story, write a polished paragraph capturing it in first-person and wrap it in <draft>...</draft> tags
 - After providing a draft, ask a follow-up question to continue the story
 - Keep drafts personal and in first-person perspective`
+    } else if (mode === 'proactive') {
+      systemPrompt = `You are a careful writing assistant silently monitoring a biography being written.
+Analyze the text for spelling errors, grammar mistakes, character name inconsistencies, or timeline confusion.
+
+Respond with a JSON object with these fields:
+- "type": one of "fix", "observation", or "none"
+- "original": (only for type "fix") the exact misspelled/wrong word as it appears in the text
+- "corrected": (only for type "fix") the correct spelling or word
+- "message": a short warm sentence to the writer (empty string if type is "none")
+
+Examples:
+{"type":"fix","original":"recieve","corrected":"receive","message":"Small typo — easy fix!"}
+{"type":"fix","original":"granma","corrected":"grandma","message":"Looks like a small typo snuck in!"}
+{"type":"observation","message":"You mentioned her childhood briefly — want to expand on that?"}
+{"type":"none","message":""}
+
+Only flag CLEAR spelling errors. Be warm and supportive.`
     } else {
       systemPrompt = `You are a careful, respectful editor helping someone polish their life story writing. Your role is to suggest improvements without rewriting the author's voice.
 
@@ -101,7 +118,11 @@ Guidelines:
     }
 
     // Add current user message
-    if (userMessage) {
+    if (mode === 'proactive') {
+      if (currentText) {
+        messages.push({ role: 'user', content: `Please review this text:\n\n${currentText}` })
+      }
+    } else if (userMessage) {
       messages.push({ role: 'user', content: userMessage })
     }
 
@@ -116,6 +137,7 @@ Guidelines:
         messages,
         temperature: 0.8,
         max_tokens: 1024,
+        ...(mode === 'proactive' ? { response_format: { type: 'json_object' } } : {}),
       }),
     })
 
@@ -127,6 +149,24 @@ Guidelines:
 
     const data = await response.json()
     const rawText = data.choices?.[0]?.message?.content ?? ''
+
+    // Proactive mode: parse JSON and return structured suggestion
+    if (mode === 'proactive') {
+      try {
+        const parsed = JSON.parse(rawText)
+        if (parsed.type === 'none' || !parsed.message) {
+          return NextResponse.json({ suggestion: null })
+        }
+        return NextResponse.json({
+          suggestion: parsed.message,
+          fix: parsed.type === 'fix' && parsed.original && parsed.corrected
+            ? { original: parsed.original, corrected: parsed.corrected }
+            : undefined,
+        })
+      } catch {
+        return NextResponse.json({ suggestion: null })
+      }
+    }
 
     // Extract <draft>...</draft> block
     const draftMatch = rawText.match(/<draft>([\s\S]*?)<\/draft>/)

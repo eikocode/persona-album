@@ -20,15 +20,30 @@ export default function Home() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [colorizeResult, setColorizeResult] = useState<ColorizeResult | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoMetadata | null>(null)
+  const [proactiveTrigger, setProactiveTrigger] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const writingAreaRef = useRef<WritingAreaHandle>(null)
+  const proactiveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const getCurrentText = useCallback(() => {
     return writingAreaRef.current?.getBody() ?? ''
   }, [])
 
+  const handleContentChange = useCallback((text: string) => {
+    if (proactiveTimer.current) clearTimeout(proactiveTimer.current)
+    proactiveTimer.current = setTimeout(() => {
+      if (text.trim().length > 80) {
+        setProactiveTrigger(text)
+      }
+    }, 4000)
+  }, [])
+
   const handleInsertText = useCallback((text: string) => {
     writingAreaRef.current?.appendText(text)
+  }, [])
+
+  const handleReplaceText = useCallback((original: string, corrected: string) => {
+    writingAreaRef.current?.replaceWord(original, corrected)
   }, [])
 
   const fetchPhotos = useCallback(async () => {
@@ -181,13 +196,15 @@ export default function Home() {
       {/* Right panel — Writing (60%) + Co-pilot (40%) */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-[60] overflow-y-auto bg-white border-r border-bio-border">
-          <WritingArea ref={writingAreaRef} photos={photos} />
+          <WritingArea ref={writingAreaRef} photos={photos} onContentChange={handleContentChange} />
         </div>
         <div className="flex-[40] overflow-hidden flex flex-col bg-bio-surface">
           <CoPilot
             photos={photos}
             getCurrentText={getCurrentText}
             onInsertText={handleInsertText}
+            onReplaceText={handleReplaceText}
+            proactiveTrigger={proactiveTrigger}
           />
         </div>
       </div>
