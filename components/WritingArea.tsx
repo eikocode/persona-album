@@ -93,6 +93,9 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
         editor.commands.setContent(initialContent)
         const text = editor.getText().trim()
         setWordCount(text ? text.split(/\s+/).filter(Boolean).length : 0)
+        // setContent does not emit onUpdate by default, so manually notify
+        // the parent so the proactive spell check fires on initial load
+        if (text) onContentChange?.(text)
       }
     }, [mounted, editor]) // eslint-disable-line react-hooks/exhaustive-deps
 

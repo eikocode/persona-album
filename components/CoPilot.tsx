@@ -24,6 +24,7 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
   const [messages, setMessages] = useState<Message[]>([])
   const [userInput, setUserInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [proactiveChecking, setProactiveChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAnalyzedText = useRef('')
@@ -38,7 +39,7 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
   }, [messages, isLoading])
 
   async function runProactiveCheck(text: string) {
-    setIsLoading(true)
+    setProactiveChecking(true)
     try {
       const apiHistory = messages.map(m => ({ role: m.role, content: m.content }))
       const response = await fetch('/api/copilot', {
@@ -46,7 +47,14 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'proactive', history: apiHistory, currentText: text, photos }),
       })
-      if (!response.ok) return
+      if (!response.ok) {
+        setMessages(prev => [...prev, {
+          role: 'model',
+          content: 'Could not run spell check — tap to retry or keep writing.',
+          isProactive: true,
+        }])
+        return
+      }
       const data = await response.json()
       const { suggestion, fix } = data
       if (suggestion) {
@@ -56,11 +64,21 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
           isProactive: true,
           fix,
         }])
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'model',
+          content: 'No spelling issues found — looking good!',
+          isProactive: true,
+        }])
       }
     } catch {
-      // silently ignore proactive check errors
+      setMessages(prev => [...prev, {
+        role: 'model',
+        content: 'Could not run spell check — check your connection and keep writing.',
+        isProactive: true,
+      }])
     } finally {
-      setIsLoading(false)
+      setProactiveChecking(false)
     }
   }
 
@@ -144,7 +162,15 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-bio-border bg-white shrink-0">
-        <span className="text-sm font-semibold text-gray-900">Co-pilot</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-gray-900">Co-pilot</span>
+          {proactiveChecking && (
+            <span className="flex items-center gap-1 text-[11px] text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Reviewing…
+            </span>
+          )}
+        </div>
         <div className="flex rounded-lg overflow-hidden border border-bio-border">
           <button
             onClick={() => switchMode('interview')}
