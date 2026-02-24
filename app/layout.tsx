@@ -7,8 +7,8 @@ import NavBar from '@/components/NavBar'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Persona Album',
-  description: 'Upload and colorize black & white photos',
+  title: 'My Biography',
+  description: 'A personal workspace for writing your life story with photos',
 }
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <NavBar />
-          <main className="max-w-7xl mx-auto px-6 py-8">
+          <main className="w-full">
             {children}
           </main>
         </AuthProvider>

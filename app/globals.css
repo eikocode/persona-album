@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #F8F8F8;
+  background-color: #FFFFFF;
   @apply text-gray-900;
 }
 
@@ -19,7 +19,13 @@ body {
   @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-1;
 }
 
-.canva-btn {
-  @apply px-4 py-2 bg-violet-600 text-white rounded-lg font-medium
-         hover:bg-violet-700 transition-colors flex items-center gap-2;
+.primary-btn {
+  @apply px-4 py-2 bg-bio-primary text-white rounded-lg font-medium
+         hover:bg-blue-700 transition-colors flex items-center gap-2
+         min-h-[44px];
+}
+
+.writing-area {
+  font-size: 18px;
+  line-height: 1.8;
 }

@@ -7,14 +7,15 @@ export default function NavBar() {
   const { user, signOut, loading } = useAuth()
 
   return (
-    <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+    <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+      <div className="w-full px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-gray-900 text-lg">
-          <svg className="w-7 h-7 text-violet-600" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          <svg className="w-7 h-7 text-bio-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
-          Persona Album
+          My Biography
         </Link>
 
         {/* Right: auth */}
@@ -34,7 +35,7 @@ export default function NavBar() {
           ) : (
             <Link
               href="/login"
-              className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-bio-primary hover:bg-blue-700 rounded-lg transition-colors"
             >
               Sign In
             </Link>

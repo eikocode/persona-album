@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PhotoGallery from '@/components/PhotoGallery'
+import WritingArea, { WritingAreaHandle } from '@/components/WritingArea'
+import PhotoTagPanel from '@/components/PhotoTagPanel'
 import ResultPreview from '@/components/ResultPreview'
-import { PhotoMetadata } from '@/lib/storage'
+import CoPilot from '@/components/CoPilot'
+import { PhotoMetadata, PhotoTags } from '@/lib/storage'
 
 interface ColorizeResult {
   original: PhotoMetadata
   colorized: PhotoMetadata
 }
-
-export type FilterTab = 'all' | 'original' | 'colorized'
 
 export default function Home() {
   const [photos, setPhotos] = useState<PhotoMetadata[]>([])
@@ -18,8 +19,17 @@ export default function Home() {
   const [colorizingId, setColorizingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [colorizeResult, setColorizeResult] = useState<ColorizeResult | null>(null)
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoMetadata | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const writingAreaRef = useRef<WritingAreaHandle>(null)
+
+  const getCurrentText = useCallback(() => {
+    return writingAreaRef.current?.getBody() ?? ''
+  }, [])
+
+  const handleInsertText = useCallback((text: string) => {
+    writingAreaRef.current?.appendText(text)
+  }, [])
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -71,6 +81,7 @@ export default function Home() {
     try {
       const response = await fetch(`/api/photos/${id}`, { method: 'DELETE' })
       if (response.ok) {
+        if (selectedPhoto?.id === id) setSelectedPhoto(null)
         await fetchPhotos()
       } else {
         alert('Failed to delete photo')
@@ -105,85 +116,92 @@ export default function Home() {
     }
   }
 
-  const filteredPhotos = photos.filter((p) => {
-    if (activeFilter === 'original') return !p.isColorized
-    if (activeFilter === 'colorized') return p.isColorized
-    return true
-  })
-
-  const tabs: { key: FilterTab; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'original', label: 'Original' },
-    { key: 'colorized', label: 'Colorized' },
-  ]
+  const handleTagsUpdate = (id: string, tags: PhotoTags) => {
+    setPhotos(prev => prev.map(p => p.id === id ? { ...p, tags } : p))
+    if (selectedPhoto?.id === id) {
+      setSelectedPhoto(prev => prev ? { ...prev, tags } : prev)
+    }
+  }
 
   return (
-    <>
-      {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Photos</h1>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-        >
-          {isUploading ? (
-            <>
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Uploading…
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-              </svg>
-              Upload
-            </>
-          )}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          multiple
-          className="hidden"
-          onChange={handleFileInputChange}
-        />
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
-        {tabs.map(({ key, label }) => (
+    <div className="flex h-[calc(100vh-56px)]">
+      {/* Left panel — Photos (38%) */}
+      <div className="w-[38%] bg-bio-surface border-r border-bio-border flex flex-col overflow-hidden">
+        {/* Panel header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-bio-border bg-white shrink-0">
+          <h2 className="text-base font-semibold text-gray-900">Photos</h2>
           <button
-            key={key}
-            onClick={() => setActiveFilter(key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
-              activeFilter === key
-                ? 'text-violet-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-bio-primary hover:bg-blue-700
+                       text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            {label}
-            {activeFilter === key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600 rounded-t" />
+            {isUploading ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Uploading…
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                </svg>
+                Upload photo
+              </>
             )}
           </button>
-        ))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+        </div>
+
+        {/* Scrollable gallery */}
+        <div className="flex-1 overflow-y-auto p-3">
+          <PhotoGallery
+            photos={photos}
+            onDelete={handleDelete}
+            onColorize={handleColorize}
+            onUpload={handleUpload}
+            onPhotoClick={setSelectedPhoto}
+            deletingId={deletingId}
+            colorizingId={colorizingId}
+            isUploading={isUploading}
+          />
+        </div>
       </div>
 
-      {/* Gallery */}
-      <PhotoGallery
-        photos={filteredPhotos}
-        onDelete={handleDelete}
-        onColorize={handleColorize}
-        onUpload={handleUpload}
-        deletingId={deletingId}
-        colorizingId={colorizingId}
-        isUploading={isUploading}
-      />
+      {/* Right panel — Writing (60%) + Co-pilot (40%) */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-[60] overflow-y-auto bg-white border-r border-bio-border">
+          <WritingArea ref={writingAreaRef} photos={photos} />
+        </div>
+        <div className="flex-[40] overflow-hidden flex flex-col bg-bio-surface">
+          <CoPilot
+            photos={photos}
+            getCurrentText={getCurrentText}
+            onInsertText={handleInsertText}
+          />
+        </div>
+      </div>
+
+      {/* Photo tag panel (slide-in overlay) */}
+      {selectedPhoto && (
+        <PhotoTagPanel
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+          onColorize={handleColorize}
+          onTagsUpdate={handleTagsUpdate}
+          colorizingId={colorizingId}
+        />
+      )}
 
       {colorizeResult && (
         <ResultPreview
@@ -192,6 +210,6 @@ export default function Home() {
           onClose={() => setColorizeResult(null)}
         />
       )}
-    </>
+    </div>
   )
 }

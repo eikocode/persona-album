@@ -7,6 +7,7 @@ interface PhotoCardProps {
   photo: PhotoMetadata
   onDelete: (id: string) => void
   onColorize: (id: string) => void
+  onPhotoClick: (photo: PhotoMetadata) => void
   isDeleting: boolean
   isColorizing: boolean
 }
@@ -15,17 +16,16 @@ export default function PhotoCard({
   photo,
   onDelete,
   onColorize,
+  onPhotoClick,
   isDeleting,
   isColorizing,
 }: PhotoCardProps) {
-  const date = new Date(photo.createdAt).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  const tagSummaryParts = [photo.tags?.people?.split(',')[0]?.trim(), photo.tags?.location].filter(Boolean)
+  const tagSummary = tagSummaryParts.join(' · ')
 
   return (
     <article
+      onClick={() => onPhotoClick(photo)}
       className={`group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl
         transition-all duration-200 hover:-translate-y-1 cursor-pointer
         ${isDeleting ? 'opacity-50' : ''}`}
@@ -37,7 +37,7 @@ export default function PhotoCard({
           alt={photo.originalName}
           fill
           className="object-cover"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          sizes="(max-width: 640px) 50vw, 20vw"
         />
 
         {/* Hover overlay */}
@@ -47,7 +47,7 @@ export default function PhotoCard({
             <button
               onClick={(e) => { e.stopPropagation(); onColorize(photo.id) }}
               disabled={isColorizing || isDeleting}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium
+              className="px-4 py-2 min-h-[44px] bg-bio-primary hover:bg-blue-700 text-white text-sm font-medium
                          rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isColorizing ? (
@@ -74,7 +74,8 @@ export default function PhotoCard({
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(photo.id) }}
             disabled={isDeleting || isColorizing}
-            className="absolute top-2 right-2 p-1.5 bg-white/20 hover:bg-red-500 text-white
+            className="absolute top-2 right-2 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center
+                       bg-white/20 hover:bg-red-500 text-white
                        rounded-full transition-colors disabled:opacity-50"
             title="Delete photo"
           >
@@ -87,7 +88,7 @@ export default function PhotoCard({
 
         {/* Colorized badge */}
         {photo.isColorized && (
-          <div className="absolute bottom-2 left-2 bg-teal-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+          <div className="absolute bottom-2 left-2 bg-bio-success text-white text-xs font-medium px-2 py-0.5 rounded-full">
             Colorized
           </div>
         )}
@@ -96,7 +97,11 @@ export default function PhotoCard({
       {/* Info strip */}
       <div className="px-3 py-2">
         <p className="text-sm font-medium text-gray-800 truncate">{photo.originalName}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{date}</p>
+        {tagSummary ? (
+          <p className="text-xs text-bio-muted mt-0.5 truncate">{tagSummary}</p>
+        ) : (
+          <p className="text-xs text-gray-300 mt-0.5">No tags yet</p>
+        )}
       </div>
     </article>
   )

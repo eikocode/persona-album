@@ -8,11 +8,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        canva: {
-          purple: '#7C3AED',
-          teal: '#00C4CC',
-          bg: '#F8F8F8',
-          card: '#FFFFFF',
+        bio: {
+          primary: '#1A56DB',
+          background: '#FFFFFF',
+          surface: '#F3F4F6',
+          text: '#111827',
+          muted: '#6B7280',
+          border: '#E5E7EB',
+          success: '#059669',
         },
       },
       borderRadius: {

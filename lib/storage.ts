@@ -3,6 +3,14 @@ import { supabase } from './supabase'
 
 const BUCKET = 'photos'
 
+export interface PhotoTags {
+  people?: string
+  location?: string
+  event?: string
+  date?: string
+  caption?: string
+}
+
 export interface PhotoMetadata {
   id: string
   filename: string
@@ -11,6 +19,7 @@ export interface PhotoMetadata {
   createdAt: string
   isColorized: boolean
   originalId?: string
+  tags?: PhotoTags
 }
 
 interface PhotoRow {
@@ -23,6 +32,7 @@ interface PhotoRow {
   original_id: string | null
   user_id: string | null
   created_at: string
+  tags: Record<string, string> | null
 }
 
 function rowToMetadata(row: PhotoRow): PhotoMetadata {
@@ -34,6 +44,7 @@ function rowToMetadata(row: PhotoRow): PhotoMetadata {
     createdAt: row.created_at,
     isColorized: row.is_colorized,
     originalId: row.original_id ?? undefined,
+    tags: row.tags ?? undefined,
   }
 }
 
