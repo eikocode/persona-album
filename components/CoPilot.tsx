@@ -56,14 +56,17 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
         return
       }
       const data = await response.json()
-      const { suggestion, fix } = data
-      if (suggestion) {
-        setMessages(prev => [...prev, {
-          role: 'model',
-          content: suggestion,
-          isProactive: true,
-          fix,
-        }])
+      const issues: { original: string; corrected: string; message: string }[] = data.issues ?? []
+      if (issues.length > 0) {
+        setMessages(prev => [
+          ...prev,
+          ...issues.map(issue => ({
+            role: 'model' as const,
+            content: issue.message,
+            isProactive: true,
+            fix: { original: issue.original, corrected: issue.corrected },
+          })),
+        ])
       } else {
         setMessages(prev => [...prev, {
           role: 'model',

@@ -80,21 +80,27 @@ Guidelines:
 - Keep drafts personal and in first-person perspective`
     } else if (mode === 'proactive') {
       systemPrompt = `You are a careful writing assistant silently monitoring a biography being written.
-Analyze the text for spelling errors, grammar mistakes, character name inconsistencies, or timeline confusion.
+Scan the entire text and find ALL spelling errors and clear grammar mistakes.
 
-Respond with a JSON object with these fields:
-- "type": one of "fix", "observation", or "none"
-- "original": (only for type "fix") the exact misspelled/wrong word as it appears in the text
-- "corrected": (only for type "fix") the correct spelling or word
-- "message": a short warm sentence to the writer (empty string if type is "none")
+Respond with a JSON object with one field:
+- "issues": an array of objects, each with:
+  - "original": the EXACT text as it appears (copy it character-for-character from the text)
+  - "corrected": the corrected replacement (must be DIFFERENT from original)
+  - "message": a short warm sentence
 
-Examples:
-{"type":"fix","original":"recieve","corrected":"receive","message":"Small typo — easy fix!"}
-{"type":"fix","original":"granma","corrected":"grandma","message":"Looks like a small typo snuck in!"}
-{"type":"observation","message":"You mentioned her childhood briefly — want to expand on that?"}
-{"type":"none","message":""}
+Rules:
+- For misspelled words: original = the misspelled word, corrected = correct spelling
+- For article errors (a/an): original = the full phrase e.g. "a apple", corrected = "an apple"
+- NEVER include an issue where original and corrected are identical
+- Only flag issues you are certain about
+- If no issues exist, return {"issues":[]}
 
-Only flag CLEAR spelling errors. Be warm and supportive.`
+Examples of good output:
+{"issues":[
+  {"original":"gradma","corrected":"grandma","message":"Small typo — easy fix!"},
+  {"original":"siter","corrected":"sister","message":"Another small typo here!"},
+  {"original":"a immigrant","corrected":"an immigrant","message":"Article tweak needed."}
+]}`
     } else {
       systemPrompt = `You are a careful, respectful editor helping someone polish their life story writing. Your role is to suggest improvements without rewriting the author's voice.
 
@@ -150,21 +156,18 @@ Guidelines:
     const data = await response.json()
     const rawText = data.choices?.[0]?.message?.content ?? ''
 
-    // Proactive mode: parse JSON and return structured suggestion
+    // Proactive mode: parse JSON array of issues
     if (mode === 'proactive') {
       try {
         const parsed = JSON.parse(rawText)
-        if (parsed.type === 'none' || !parsed.message) {
-          return NextResponse.json({ suggestion: null })
-        }
-        return NextResponse.json({
-          suggestion: parsed.message,
-          fix: parsed.type === 'fix' && parsed.original && parsed.corrected
-            ? { original: parsed.original, corrected: parsed.corrected }
-            : undefined,
-        })
+        const rawIssues = Array.isArray(parsed.issues) ? parsed.issues : []
+        const issues = rawIssues.filter(
+          (i: { original?: string; corrected?: string; message?: string }) =>
+            i.original && i.corrected && i.message && i.original !== i.corrected
+        )
+        return NextResponse.json({ issues })
       } catch {
-        return NextResponse.json({ suggestion: null })
+        return NextResponse.json({ issues: [] })
       }
     }
 
