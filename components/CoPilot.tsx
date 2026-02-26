@@ -236,7 +236,10 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
                 <span className="mr-1">💡</span>{msg.content}
                 {msg.fix && (
                   <button
-                    onClick={() => onReplaceText(msg.fix!.original, msg.fix!.corrected)}
+                    onClick={() => {
+                      onReplaceText(msg.fix!.original, msg.fix!.corrected)
+                      setMessages(prev => prev.filter((_, idx) => idx !== i))
+                    }}
                     className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700
                                text-white text-xs font-medium rounded-lg transition-colors"
                   >

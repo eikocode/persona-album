@@ -140,8 +140,8 @@ export default function Home() {
 
   return (
     <div className="flex h-[calc(100vh-56px)]">
-      {/* Left panel — Photos (28%) */}
-      <div className="w-[28%] bg-bio-surface border-r border-bio-border flex flex-col overflow-hidden">
+      {/* Left panel — Photos (fixed 220px) */}
+      <div className="w-[220px] shrink-0 bg-bio-surface border-r border-bio-border flex flex-col overflow-hidden">
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-bio-border bg-white shrink-0">
           <h2 className="text-base font-semibold text-gray-900">
@@ -150,24 +150,19 @@ export default function Home() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-bio-primary hover:bg-blue-700
-                       text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            title="Upload photo"
+            className="flex items-center justify-center w-9 h-9 bg-bio-primary hover:bg-blue-700
+                       text-white rounded-lg transition-colors disabled:opacity-50 shrink-0"
           >
             {isUploading ? (
-              <>
-                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Uploading…
-              </>
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
             ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-                </svg>
-                Upload photo
-              </>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+              </svg>
             )}
           </button>
           <input
@@ -195,12 +190,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Right panel — Writing (60%) + Co-pilot (40%) */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-[60] overflow-y-auto bg-gray-100 border-r border-bio-border">
+      {/* Right panel — Writing (flex-1) + Co-pilot (fixed 320px) */}
+      <div className="flex-1 flex overflow-hidden min-w-0">
+        <div className="flex-1 overflow-y-auto overflow-x-auto bg-gray-100 border-r border-bio-border writing-panel">
           <WritingArea ref={writingAreaRef} photos={photos} onContentChange={handleContentChange} />
         </div>
-        <div className="flex-[40] overflow-hidden flex flex-col bg-bio-surface">
+        <div className="w-[320px] shrink-0 overflow-hidden flex flex-col bg-bio-surface copilot-panel">
           <CoPilot
             photos={photos}
             getCurrentText={getCurrentText}

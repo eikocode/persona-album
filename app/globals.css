@@ -52,3 +52,39 @@ body {
 .ProseMirror-dropcursor {
   border-color: #1A56DB;
 }
+
+/* ── Print ─────────────────────────────────────────────────────────── */
+@page {
+  size: 8.5in 11in;
+  margin: 0;
+}
+
+@media print {
+  nav,
+  .photo-gallery-panel,
+  .copilot-panel,
+  .page-controls {
+    display: none !important;
+  }
+
+  .writing-panel {
+    flex: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .page-canvas-wrapper {
+    background: none !important;
+    padding: 0 !important;
+  }
+
+  .page-card {
+    box-shadow: none !important;
+    break-after: page;
+    overflow: hidden;
+  }
+
+  .page-card:last-of-type {
+    break-after: auto;
+  }
+}

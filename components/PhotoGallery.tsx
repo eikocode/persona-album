@@ -27,7 +27,7 @@ export default function PhotoGallery({
 }: PhotoGalleryProps) {
   if (photos.length === 0) {
     return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <UploadCard onUpload={onUpload} isUploading={isUploading} />
         <div className="col-span-2 flex flex-col items-center justify-center py-12 text-center">
           <svg className="w-12 h-12 text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,7 +42,7 @@ export default function PhotoGallery({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       <UploadCard onUpload={onUpload} isUploading={isUploading} />
       {photos.map((photo) => (
         <PhotoCard
