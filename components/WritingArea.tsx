@@ -224,7 +224,7 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
     if (!mounted) return null
 
     return (
-      <div className="flex flex-col items-center py-10 gap-6 min-h-full">
+      <div className="flex flex-col items-center py-10 gap-6 min-h-full min-w-fit">
         {/* Title — same width as pages */}
         <div style={{ width: 816 }}>
           <input
