@@ -75,7 +75,8 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
             fix: { original: issue.original, corrected: issue.corrected },
           })),
         ])
-      // No issues — stay silent (don't accumulate "no issues" messages)
+      }
+      // No issues — stay silent
     } catch {
       setMessages(prev => [...prev, {
         role: 'model',
