@@ -80,8 +80,12 @@ const PageCanvas = forwardRef<PageCanvasHandle, PageCanvasProps>(
       getText: () => editor?.getText() ?? '',
       getJSON: () => editor?.getJSON() ?? { type: 'doc', content: [{ type: 'paragraph' }] },
       appendText: (text: string) => {
+        console.log('[PageCanvas] appendText called', { hasEditor: !!editor, text: text.slice(0, 40) })
         if (!editor) return
-        editor.chain().focus('end').insertContent({ type: 'paragraph', content: [{ type: 'text', text }] }).run()
+        const { state, view } = editor
+        const paragraph = state.schema.nodes.paragraph.create(null, [state.schema.text(text)])
+        const tr = state.tr.insert(state.doc.content.size, paragraph)
+        view.dispatch(tr)
       },
       replaceWord: (original: string, corrected: string): boolean => {
         if (!editor) return false

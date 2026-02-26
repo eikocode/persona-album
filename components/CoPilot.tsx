@@ -75,13 +75,7 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
             fix: { original: issue.original, corrected: issue.corrected },
           })),
         ])
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'model',
-          content: 'No spelling issues found — looking good!',
-          isProactive: true,
-        }])
-      }
+      // No issues — stay silent (don't accumulate "no issues" messages)
     } catch {
       setMessages(prev => [...prev, {
         role: 'model',

@@ -163,18 +163,11 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
           .join('\n\n'),
 
       appendText: (text: string) => {
+        console.log('[WritingArea] appendText called', { text: text.slice(0, 40), refsLen: pageRefs.current.length })
         const refs = pageRefs.current.filter(Boolean)
+        console.log('[WritingArea] filtered refs length:', refs.length)
         if (refs.length === 0) return
-        const last = refs[refs.length - 1]!
-        last.appendText(text)
-        // Persist updated JSON from last page
-        setPages(prev => {
-          const next = prev.map((p, i) =>
-            i === prev.length - 1 ? { ...p, content: last.getJSON() } : p
-          )
-          scheduleSave(next)
-          return next
-        })
+        refs[refs.length - 1]!.appendText(text)
       },
 
       replaceWord: (original: string, corrected: string) => {

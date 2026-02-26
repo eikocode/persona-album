@@ -39,6 +39,7 @@ export default function Home() {
   }, [])
 
   const handleInsertText = useCallback((text: string) => {
+    console.log('[page] handleInsertText called', { hasRef: !!writingAreaRef.current, text: text.slice(0, 40) })
     writingAreaRef.current?.appendText(text)
   }, [])
 
