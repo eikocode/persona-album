@@ -57,10 +57,18 @@ export default function CoPilot({ photos, getCurrentText, onInsertText, onReplac
       }
       const data = await response.json()
       const issues: { original: string; corrected: string; message: string }[] = data.issues ?? []
-      if (issues.length > 0) {
+      // Deduplicate by original→corrected so the same fix isn't shown multiple times
+      const seen = new Set<string>()
+      const uniqueIssues = issues.filter(issue => {
+        const key = `${issue.original}→${issue.corrected}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      if (uniqueIssues.length > 0) {
         setMessages(prev => [
           ...prev,
-          ...issues.map(issue => ({
+          ...uniqueIssues.map(issue => ({
             role: 'model' as const,
             content: issue.message,
             isProactive: true,

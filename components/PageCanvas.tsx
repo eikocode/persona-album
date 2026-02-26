@@ -81,10 +81,7 @@ const PageCanvas = forwardRef<PageCanvasHandle, PageCanvasProps>(
       getJSON: () => editor?.getJSON() ?? { type: 'doc', content: [{ type: 'paragraph' }] },
       appendText: (text: string) => {
         if (!editor) return
-        editor.chain().focus('end').insertContentAt(
-          editor.state.doc.content.size,
-          { type: 'paragraph', content: [{ type: 'text', text }] }
-        ).run()
+        editor.chain().focus('end').insertContent({ type: 'paragraph', content: [{ type: 'text', text }] }).run()
       },
       replaceWord: (original: string, corrected: string): boolean => {
         if (!editor) return false
