@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react'
+import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import ImageExtension from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -10,7 +11,6 @@ import { ImageNodeView } from './ImageNodeView'
 export interface PageCanvasHandle {
   getText: () => string
   getJSON: () => object
-  appendText: (text: string) => void
   replaceWord: (original: string, corrected: string) => boolean
 }
 
@@ -20,15 +20,19 @@ interface PageCanvasProps {
   pageNumber: number
   onUpdate: (pageIndex: number, json: object) => void
   onContentChange?: (text: string) => void
+  onEditorReady?: (editor: Editor | null) => void
 }
 
 const PageCanvas = forwardRef<PageCanvasHandle, PageCanvasProps>(
-  function PageCanvas({ content, pageIndex, pageNumber, onUpdate, onContentChange }, ref) {
+  function PageCanvas({ content, pageIndex, pageNumber, onUpdate, onContentChange, onEditorReady }, ref) {
     // Store callbacks in refs so the TipTap closure never goes stale
     const onUpdateRef = useRef(onUpdate)
     const onContentChangeRef = useRef(onContentChange)
     useEffect(() => { onUpdateRef.current = onUpdate }, [onUpdate])
     useEffect(() => { onContentChangeRef.current = onContentChange }, [onContentChange])
+
+    const onEditorReadyRef = useRef(onEditorReady)
+    useEffect(() => { onEditorReadyRef.current = onEditorReady }, [onEditorReady])
 
     const editor = useEditor({
       extensions: [
@@ -76,17 +80,14 @@ const PageCanvas = forwardRef<PageCanvasHandle, PageCanvasProps>(
       },
     })
 
+    useEffect(() => {
+      onEditorReadyRef.current?.(editor ?? null)
+      return () => { onEditorReadyRef.current?.(null) }
+    }, [editor])
+
     useImperativeHandle(ref, () => ({
       getText: () => editor?.getText() ?? '',
       getJSON: () => editor?.getJSON() ?? { type: 'doc', content: [{ type: 'paragraph' }] },
-      appendText: (text: string) => {
-        console.log('[PageCanvas] appendText called', { hasEditor: !!editor, text: text.slice(0, 40) })
-        if (!editor) return
-        const { state, view } = editor
-        const paragraph = state.schema.nodes.paragraph.create(null, [state.schema.text(text)])
-        const tr = state.tr.insert(state.doc.content.size, paragraph)
-        view.dispatch(tr)
-      },
       replaceWord: (original: string, corrected: string): boolean => {
         if (!editor) return false
         const { state, view } = editor

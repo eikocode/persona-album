@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { Editor } from '@tiptap/core'
 import PageCanvas, { PageCanvasHandle } from './PageCanvas'
 import PageControls from './PageControls'
 
@@ -81,6 +82,7 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     const pageRefs = useRef<(PageCanvasHandle | null)[]>([])
+    const editorRefs = useRef<(Editor | null)[]>([])
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -163,11 +165,39 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
           .join('\n\n'),
 
       appendText: (text: string) => {
-        console.log('[WritingArea] appendText called', { text: text.slice(0, 40), refsLen: pageRefs.current.length })
-        const refs = pageRefs.current.filter(Boolean)
-        console.log('[WritingArea] filtered refs length:', refs.length)
-        if (refs.length === 0) return
-        refs[refs.length - 1]!.appendText(text)
+        // Find the last page editor that has real content (image or non-empty text)
+        let targetEditor: Editor | null = null
+        for (let j = editorRefs.current.length - 1; j >= 0; j--) {
+          const ed = editorRefs.current[j]
+          if (!ed) continue
+          let hasContent = false
+          ed.state.doc.forEach(node => {
+            if (node.type.name === 'image' || node.textContent.trim()) hasContent = true
+          })
+          if (hasContent) { targetEditor = ed; break }
+        }
+        // Fall back to last available editor
+        if (!targetEditor) {
+          for (let j = editorRefs.current.length - 1; j >= 0; j--) {
+            if (editorRefs.current[j]) { targetEditor = editorRefs.current[j]; break }
+          }
+        }
+        if (!targetEditor) return
+
+        const paras = text.split(/\n\n+/).map(s => s.replace(/\n/g, ' ').trim()).filter(Boolean)
+        const content = (paras.length > 0 ? paras : [text.replace(/\n/g, ' ').trim()])
+          .map(p => ({ type: 'paragraph' as const, content: p ? [{ type: 'text', text: p }] : [] }))
+
+        // Insert after the last non-empty node, not after trailing empty paragraphs
+        const doc = targetEditor.state.doc
+        let insertPos = 1
+        doc.forEach((node, offset) => {
+          if (node.type.name === 'image' || node.textContent.trim()) {
+            insertPos = offset + node.nodeSize
+          }
+        })
+
+        targetEditor.commands.insertContentAt(insertPos, content)
       },
 
       replaceWord: (original: string, corrected: string) => {
@@ -218,6 +248,7 @@ const WritingArea = forwardRef<WritingAreaHandle, WritingAreaProps>(
               pageNumber={i + 1}
               onUpdate={handlePageUpdate}
               onContentChange={onContentChangeRef.current}
+              onEditorReady={(ed) => { editorRefs.current[i] = ed }}
             />
             <PageControls
               afterIndex={i}
